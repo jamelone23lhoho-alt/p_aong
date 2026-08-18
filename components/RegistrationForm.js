@@ -203,6 +203,7 @@ export default function RegistrationForm() {
           </div>
           <h2>ลงทะเบียนเรียบร้อย</h2>
           <p>นี่คือ QR ประจำตัวของคุณ ใช้แสดงตอนเข้าที่พัก แล้วเจอกันที่งานปาร์ตี้</p>
+          <p className="event-name">Energy on the Rocks · Temca Night Party</p>
 
           <div className="qr-box">
             {qrDataUrl && <img src={qrDataUrl} alt="QR บัตรเข้าพัก" className="qr-img" />}

@@ -503,8 +503,9 @@ body {
 .success .receipt {
   display: inline-flex;
   gap: 10px;
-  align-items: baseline;
-  padding: 10px 16px;
+  align-items: center;
+  line-height: 1;
+  padding: 13px 18px;
   border-radius: 999px;
   background: var(--tier-soft);
   color: var(--ink);
@@ -512,6 +513,16 @@ body {
   font-weight: 600;
   letter-spacing: 0.14em;
   margin-bottom: 22px;
+}
+
+.success .event-name {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 16px;
+  letter-spacing: 0.06em;
+  color: #33a9e8;
+  margin: 0 auto 18px;
+  max-width: none;
 }
 
 .qr-box {
