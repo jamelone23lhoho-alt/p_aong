@@ -59,22 +59,21 @@ npm run dev
 
 เว็บจะเรียก Apps Script ผ่าน API route ฝั่งเซิร์ฟเวอร์ ทำให้ไม่ติดปัญหา CORS และไม่เปิดเผย URL ของ Apps Script บนฝั่ง client
 
-## อีเมล & QR (Amazon SES)
+## อีเมล & QR (Mailgun)
 
-**QR ประจำตัว** — ตอนกดยืนยัน ระบบสุ่มรหัส (token) ให้แต่ละคนไม่ซ้ำกัน แล้วสร้าง QR จาก `เลขบัตร-รหัสสุ่ม` โชว์ในหน้าสำเร็จ (บันทึกลงเครื่อง/แกลเลอรีได้ผ่านปุ่มหรือกดค้างที่รูป) และเก็บในคอลัมน์ "รหัส QR" ของชีท
+**QR ประจำตัว** — ตอนกดยืนยัน ระบบสุ่มรหัส (token) ให้แต่ละคนไม่ซ้ำกัน สร้าง QR จาก `เลขบัตร-รหัสสุ่ม` โชว์ในหน้าสำเร็จ (บันทึกลงเครื่อง/แกลเลอรีได้) และเก็บในคอลัมน์ "รหัส QR"
 
-ระบบส่งอีเมลทำผ่าน Apps Script โดยยิงเข้า Amazon SES API v2 (`/v2/email/outbound-emails`) พร้อมเซ็น request แบบ AWS Signature V4 ในโค้ดให้แล้ว (ไม่ต้องใช้ไลบรารีนอก) รูป QR ในอีเมลดึงจาก api.qrserver.com จึงไม่ต้องแตะ Google Drive
+ระบบส่งอีเมลทำผ่าน Apps Script → Mailgun API (`/v3/{domain}/messages`) รูป QR ในอีเมลดึงจาก api.qrserver.com
 
 ตั้งค่าก่อนใช้งาน:
-1. ใน AWS Console เปิด Amazon SES เลือก region ที่ต้องการ (ค่าเริ่มต้นในโค้ดคือ `ap-southeast-1` สิงคโปร์ — แก้ที่ตัวแปร `AWS_REGION` ได้)
-2. **Verify identity**: ยืนยันโดเมนผู้ส่ง (ตั้ง DKIM/SPF) หรืออย่างน้อยยืนยันอีเมลผู้ส่ง แล้วแก้ `MAIL_FROM` / `MAIL_FROM_NAME` ให้ตรง
-3. **ออกจาก Sandbox**: บัญชี SES ใหม่จะอยู่ในโหมด sandbox (ส่งได้เฉพาะอีเมลที่ verify แล้ว) ต้องกด Request production access เพื่อส่งถึงผู้เข้าร่วมทั่วไปได้
-4. สร้าง IAM user ที่มีสิทธิ์ `ses:SendEmail` แล้วเอา Access Key ID / Secret Access Key มาใส่ผ่านเมนู **ระบบลงทะเบียน → ตั้งค่า Amazon SES Key** (เก็บใน Script Properties ไม่ฝังในโค้ด)
-5. เปิด/ปิดอีเมลยืนยันอัตโนมัติได้ที่ตัวแปร `SEND_CONFIRMATION`
+1. สมัคร Mailgun แล้ว verify โดเมน `javaoutrunners.com` (ใส่ SPF/DKIM/CNAME ที่ Mailgun ให้ ลงใน Cloudflare)
+2. ในโค้ดตั้งไว้ให้แล้ว: `MAILGUN_DOMAIN = "javaoutrunners.com"`, `MAILGUN_REGION = "us"` (ถ้าโดเมนอยู่ภูมิภาค EU เปลี่ยนเป็น "eu"), `MAIL_FROM_NAME = "Temca Night Party"`, `REPLY_TO = "temcaparty@gmail.com"`
+3. เอา Private API Key จาก Mailgun (Settings → API keys) มาใส่ผ่านเมนู **ระบบลงทะเบียน → ตั้งค่า Mailgun API Key**
+4. เปิด/ปิดอีเมลยืนยันที่ตัวแปร `SEND_CONFIRMATION`
 
-**ส่งอีเมลประกาศถึงทุกคน** — แก้ข้อความที่ `ANNOUNCE_SUBJECT` / `ANNOUNCE_HTML` แล้วใช้เมนู **ระบบลงทะเบียน → ส่งอีเมลประกาศถึงทุกคน** ระบบส่งทีละคน ข้ามคนที่ส่งไปแล้ว (คอลัมน์ "สถานะส่งประกาศ") และหยุดเองเมื่อใกล้ครบเวลา 5 นาที ให้รันซ้ำจนครบ
+**ส่งอีเมลประกาศถึงทุกคน** — แก้ `ANNOUNCE_SUBJECT` / `ANNOUNCE_HTML` แล้วใช้เมนู ส่งเป็น batch ทีละ 100 ข้ามคนที่ส่งแล้ว หยุดเองเมื่อใกล้ครบ 5 นาที รันซ้ำได้
 
-### เรื่องปริมาณ (วันละ ~1000)
-- Amazon SES ราคาถูกมาก ~$0.10 ต่อ 1,000 อีเมล (30k/เดือน ≈ $3)
-- ต้องออกจาก sandbox ก่อน และโควตาการส่งเริ่มต้นจะค่อย ๆ เพิ่มตามชื่อเสียงการส่ง (rate เริ่มต้นมักพอสำหรับ 1000/วันหลังได้ production access)
-- ยืนยันโดเมน (DKIM/SPF/DMARC) ให้ครบเพื่อ deliverability ที่ดี
+### เรื่องปริมาณ
+- แพลนฟรีของ Mailgun = 3,000 อีเมล/เดือน — พอสำหรับยืนยัน ~1,000 คน + ประกาศ 1-2 รอบ
+- ถ้าเกิน 3,000/เดือน ค่อยขึ้นแพลน Basic $15 (10,000/เดือน ไม่มี daily limit)
+- ต้อง verify โดเมน (SPF/DKIM) เพื่อ deliverability ที่ดี

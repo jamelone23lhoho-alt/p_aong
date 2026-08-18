@@ -9,11 +9,14 @@ const REC_COLS = 14;
 const EVENT_NAME = "Energy on the Rocks · Tamca Night Party";
 const SEND_CONFIRMATION = true;
 
-const AWS_REGION = "ap-southeast-1";
-const MAIL_FROM = "noreply@yourdomain.com";
-const MAIL_FROM_NAME = "Energy on the Rocks";
+const MAILGUN_DOMAIN = "javaoutrunners.com";
+const MAILGUN_REGION = "us";
+const MAIL_FROM = "noreply@javaoutrunners.com";
+const MAIL_FROM_NAME = "Temca Night Party";
+const REPLY_TO = "temcaparty@gmail.com";
 
 const QR_API = "https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=8&data=";
+const ANNOUNCE_BATCH = 100;
 
 const ANNOUNCE_SUBJECT = "อัปเดตงาน Energy on the Rocks · Tamca Night Party";
 const ANNOUNCE_HTML =
@@ -48,21 +51,19 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu("ระบบลงทะเบียน")
     .addItem("Initialize ชีท", "initialize")
-    .addItem("ตั้งค่า Amazon SES Key", "setupMailKey")
+    .addItem("ตั้งค่า Mailgun API Key", "setupMailKey")
     .addItem("ส่งอีเมลประกาศถึงทุกคน", "sendAnnouncement")
     .addToUi();
 }
 
 function setupMailKey() {
   const ui = SpreadsheetApp.getUi();
-  const a = ui.prompt("Amazon SES", "วาง AWS Access Key ID", ui.ButtonSet.OK_CANCEL);
-  if (a.getSelectedButton() !== ui.Button.OK) return;
-  const s = ui.prompt("Amazon SES", "วาง AWS Secret Access Key", ui.ButtonSet.OK_CANCEL);
-  if (s.getSelectedButton() !== ui.Button.OK) return;
-  const props = PropertiesService.getScriptProperties();
-  props.setProperty("AWS_ACCESS_KEY_ID", a.getResponseText().trim());
-  props.setProperty("AWS_SECRET_ACCESS_KEY", s.getResponseText().trim());
-  ui.alert("บันทึก AWS Key เรียบร้อย");
+  const resp = ui.prompt("Mailgun API Key", "วาง Private API Key ที่นี่", ui.ButtonSet.OK_CANCEL);
+  if (resp.getSelectedButton() === ui.Button.OK) {
+    const key = resp.getResponseText().trim();
+    PropertiesService.getScriptProperties().setProperty("MAILGUN_API_KEY", key);
+    ui.alert(key ? "บันทึก API Key เรียบร้อย" : "ล้างค่า API Key แล้ว");
+  }
 }
 
 function getDbSheet_() {
@@ -164,83 +165,31 @@ function addRecord(record) {
   return jsonOut_({ ok: true, row: target });
 }
 
-function hex_(bytes) {
-  let s = "";
-  for (let i = 0; i < bytes.length; i++) {
-    let b = (bytes[i] & 0xff).toString(16);
-    if (b.length < 2) b = "0" + b;
-    s += b;
-  }
-  return s;
-}
+function mailgunSend_(recipients, subject, html) {
+  const key = PropertiesService.getScriptProperties().getProperty("MAILGUN_API_KEY");
+  if (!key) throw new Error("ยังไม่ได้ตั้งค่า Mailgun API Key");
 
-function bytes_(str) {
-  return Utilities.newBlob(str).getBytes();
-}
+  const base = MAILGUN_REGION === "eu" ? "https://api.eu.mailgun.net" : "https://api.mailgun.net";
+  const endpoint = base + "/v3/" + MAILGUN_DOMAIN + "/messages";
 
-function sha256hex_(str) {
-  return hex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, str, Utilities.Charset.UTF_8));
-}
-
-function hmac_(keyBytes, msg) {
-  return Utilities.computeHmacSha256Signature(bytes_(msg), keyBytes);
-}
-
-function awsSesSend_(toAddress, subject, html) {
-  const props = PropertiesService.getScriptProperties();
-  const accessKey = props.getProperty("AWS_ACCESS_KEY_ID");
-  const secret = props.getProperty("AWS_SECRET_ACCESS_KEY");
-  if (!accessKey || !secret) throw new Error("ยังไม่ได้ตั้งค่า AWS Key");
-
-  const host = "email." + AWS_REGION + ".amazonaws.com";
-  const uri = "/v2/email/outbound-emails";
-  const endpoint = "https://" + host + uri;
-
-  const body = JSON.stringify({
-    FromEmailAddress: MAIL_FROM_NAME + " <" + MAIL_FROM + ">",
-    Destination: { ToAddresses: [toAddress] },
-    Content: {
-      Simple: {
-        Subject: { Data: subject, Charset: "UTF-8" },
-        Body: { Html: { Data: html, Charset: "UTF-8" } }
-      }
-    }
-  });
-
-  const now = new Date();
-  const amzDate = Utilities.formatDate(now, "UTC", "yyyyMMdd'T'HHmmss'Z'");
-  const dateStamp = Utilities.formatDate(now, "UTC", "yyyyMMdd");
-
-  const payloadHash = sha256hex_(body);
-  const canonicalHeaders = "content-type:application/json\n" + "host:" + host + "\n" + "x-amz-date:" + amzDate + "\n";
-  const signedHeaders = "content-type;host;x-amz-date";
-  const canonicalRequest = ["POST", uri, "", canonicalHeaders, signedHeaders, payloadHash].join("\n");
-
-  const scope = dateStamp + "/" + AWS_REGION + "/ses/aws4_request";
-  const stringToSign = ["AWS4-HMAC-SHA256", amzDate, scope, sha256hex_(canonicalRequest)].join("\n");
-
-  const kDate = hmac_(bytes_("AWS4" + secret), dateStamp);
-  const kRegion = hmac_(kDate, AWS_REGION);
-  const kService = hmac_(kRegion, "ses");
-  const kSigning = hmac_(kService, "aws4_request");
-  const signature = hex_(Utilities.computeHmacSha256Signature(bytes_(stringToSign), kSigning));
-
-  const authorization =
-    "AWS4-HMAC-SHA256 Credential=" + accessKey + "/" + scope +
-    ", SignedHeaders=" + signedHeaders +
-    ", Signature=" + signature;
+  const payload = {
+    from: MAIL_FROM_NAME + " <" + MAIL_FROM + ">",
+    to: recipients,
+    subject: subject,
+    html: html
+  };
+  if (REPLY_TO) payload["h:Reply-To"] = REPLY_TO;
 
   const res = UrlFetchApp.fetch(endpoint, {
     method: "post",
-    contentType: "application/json",
-    headers: { "X-Amz-Date": amzDate, Authorization: authorization },
-    payload: body,
+    headers: { Authorization: "Basic " + Utilities.base64Encode("api:" + key) },
+    payload: payload,
     muteHttpExceptions: true
   });
 
   const code = res.getResponseCode();
   if (code < 200 || code >= 300) {
-    throw new Error("SES " + code + ": " + res.getContentText());
+    throw new Error("Mailgun " + code + ": " + res.getContentText());
   }
   return true;
 }
@@ -267,7 +216,7 @@ function confirmationHtml_(r, token) {
 function sendConfirmation_(r, token) {
   if (!SEND_CONFIRMATION) return;
   try {
-    awsSesSend_(String(r.email).trim(), "ยืนยันการลงทะเบียน " + EVENT_NAME + " · บัตร " + r.cardNo, confirmationHtml_(r, token));
+    mailgunSend_([String(r.email).trim()], "ยืนยันการลงทะเบียน " + EVENT_NAME + " · บัตร " + r.cardNo, confirmationHtml_(r, token));
   } catch (err) {}
 }
 
@@ -286,20 +235,35 @@ function sendAnnouncement() {
   const announceIdx = 13;
   const today = Utilities.formatDate(new Date(), TZ, "yyyy-MM-dd");
   const start = Date.now();
-  let sent = 0;
 
-  for (let i = 0; i < data.length; i++) {
-    if (Date.now() - start > 280000) break;
-    const email = String(data[i][emailIdx] || "").trim();
-    const done = String(data[i][announceIdx] || "").trim();
-    if (!email || done) continue;
-    try {
-      awsSesSend_(email, ANNOUNCE_SUBJECT, ANNOUNCE_HTML);
-      data[i][announceIdx] = "sent " + today;
-      sent++;
-    } catch (err) {
-      break;
+  let sent = 0;
+  let batch = [];
+  let batchRows = [];
+
+  const flush = function () {
+    if (!batch.length) return;
+    mailgunSend_(batch, ANNOUNCE_SUBJECT, ANNOUNCE_HTML);
+    for (let k = 0; k < batchRows.length; k++) {
+      data[batchRows[k]][announceIdx] = "sent " + today;
     }
+    sent += batch.length;
+    batch = [];
+    batchRows = [];
+  };
+
+  try {
+    for (let i = 0; i < data.length; i++) {
+      if (Date.now() - start > 280000) break;
+      const email = String(data[i][emailIdx] || "").trim();
+      const done = String(data[i][announceIdx] || "").trim();
+      if (!email || done) continue;
+      batch.push(email);
+      batchRows.push(i);
+      if (batch.length >= ANNOUNCE_BATCH) flush();
+    }
+    flush();
+  } catch (err) {
+    ui.alert("หยุดชั่วคราว: " + err.message + "\nส่งไปแล้ว " + sent + " ฉบับ ระบบจะข้ามคนที่ส่งแล้วเมื่อรันซ้ำ");
   }
 
   const flags = data.map(function (rw) {
