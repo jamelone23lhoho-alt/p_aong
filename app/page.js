@@ -1,18 +1,17 @@
-export default function Home() {
+import RegistrationForm from "@/components/RegistrationForm";
+
+export default function Page() {
   return (
-    <main
-      style={{
-        display: "flex",
-        minHeight: "100vh",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        fontFamily: "system-ui, sans-serif",
-        gap: "8px",
-      }}
-    >
-      <h1 style={{ margin: 0 }}>Deploy สำเร็จแล้ว 🎉</h1>
-      <p style={{ color: "#666", margin: 0 }}>Next.js is running on Vercel</p>
+    <main className="shell">
+      <header className="masthead">
+        <p className="eyebrow">Booth Crew Night</p>
+        <h1>ลงทะเบียนบัตรเข้าพัก</h1>
+        <p>สำหรับทีมงานที่ร่วมออกบูธด้วยกัน กรอกข้อมูลบัตรของคุณเพื่อยืนยันที่พักในค่ำคืนงานเลี้ยง</p>
+      </header>
+
+      <RegistrationForm />
+
+      <p className="footer-note">ระบบลงทะเบียนภายในทีม · ข้อมูลใช้สำหรับจัดที่พักเท่านั้น</p>
     </main>
   );
 }
