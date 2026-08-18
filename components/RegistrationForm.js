@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
 import Spinner from "@/components/Spinner";
 import SavingOverlay from "@/components/SavingOverlay";
@@ -47,7 +47,7 @@ export default function RegistrationForm() {
   const [submitError, setSubmitError] = useState("");
   const [savedNo, setSavedNo] = useState("");
   const [savedToken, setSavedToken] = useState("");
-  const qrRef = useRef(null);
+  const [qrDataUrl, setQrDataUrl] = useState("");
 
   const loadOptions = async () => {
     setStatus("loading");
@@ -72,12 +72,14 @@ export default function RegistrationForm() {
   }, []);
 
   useEffect(() => {
-    if (status === "done" && savedToken && qrRef.current) {
-      QRCode.toCanvas(qrRef.current, `${savedNo}-${savedToken}`, {
-        width: 220,
+    if (status === "done" && savedToken) {
+      QRCode.toDataURL(`${savedNo}-${savedToken}`, {
+        width: 480,
         margin: 1,
         color: { dark: "#1f1a26", light: "#ffffff" }
-      });
+      })
+        .then(setQrDataUrl)
+        .catch(() => {});
     }
   }, [status, savedToken, savedNo]);
 
@@ -132,12 +134,27 @@ export default function RegistrationForm() {
     }
   };
 
-  const downloadQR = () => {
-    if (!qrRef.current) return;
-    const link = document.createElement("a");
-    link.download = `guest-pass-${savedNo}.png`;
-    link.href = qrRef.current.toDataURL("image/png");
-    link.click();
+  const saveQR = async () => {
+    if (!qrDataUrl) return;
+    try {
+      const blob = await (await fetch(qrDataUrl)).blob();
+      const file = new File([blob], `guest-pass-${savedNo}.png`, { type: "image/png" });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: "Guest Pass QR", text: "QR บัตรเข้าพัก" });
+        return;
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `guest-pass-${savedNo}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1500);
+    } catch (err) {
+      if (err && err.name === "AbortError") return;
+      window.open(qrDataUrl, "_blank");
+    }
   };
 
   const reset = () => {
@@ -146,6 +163,7 @@ export default function RegistrationForm() {
     setSubmitError("");
     setSavedNo("");
     setSavedToken("");
+    setQrDataUrl("");
     setStatus("ready");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -182,7 +200,7 @@ export default function RegistrationForm() {
         <p>นี่คือ QR ประจำตัวของคุณ ใช้แสดงตอนเข้าที่พัก แล้วเจอกันที่งานปาร์ตี้</p>
 
         <div className="qr-box">
-          <canvas ref={qrRef} className="qr-canvas" />
+          {qrDataUrl && <img src={qrDataUrl} alt="QR บัตรเข้าพัก" className="qr-img" />}
         </div>
 
         <div className="receipt">
@@ -190,10 +208,10 @@ export default function RegistrationForm() {
           <span>{savedNo}</span>
         </div>
 
-        <p className="qr-note">โปรดกดดาวน์โหลดรูป QR เก็บไว้ในเครื่อง หรือแคปหน้าจอไว้ เพราะระบบจะไม่แสดงซ้ำ</p>
+        <p className="qr-note">กดปุ่มด้านล่างเพื่อบันทึกรูป QR ลงเครื่อง หรือกดค้างที่รูปเพื่อบันทึกลงแกลเลอรี (หรือแคปหน้าจอไว้ก็ได้)</p>
 
-        <button type="button" className="submit" onClick={downloadQR}>
-          ดาวน์โหลดรูป QR
+        <button type="button" className="submit" onClick={saveQR}>
+          บันทึกรูป QR ลงเครื่อง
         </button>
         <div style={{ marginTop: 10 }}>
           <button type="button" className="link-btn" onClick={reset}>

@@ -515,7 +515,8 @@ body {
 }
 
 .qr-box {
-  display: inline-flex;
+  display: flex;
+  width: fit-content;
   padding: 14px;
   margin: 4px auto 18px;
   background: #fff;
@@ -524,7 +525,7 @@ body {
   box-shadow: 0 12px 30px -16px rgba(51, 169, 232, 0.6);
 }
 
-.qr-canvas {
+.qr-img {
   display: block;
   width: 200px;
   height: 200px;
@@ -558,6 +559,7 @@ body {
   margin-top: 6px;
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 10px;
 }
 
@@ -566,6 +568,7 @@ body {
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--ink-faint);
+  text-align: center;
 }
 
 .sponsors__row {
@@ -573,6 +576,7 @@ body {
   flex-wrap: wrap;
   gap: 10px;
   align-items: center;
+  justify-content: center;
 }
 
 .sponsor-chip {

@@ -6,15 +6,21 @@ const OPT_COLS = 2;
 const REC_START_COL = 4;
 const REC_COLS = 14;
 
-const EVENT_NAME = "Booth Crew Night";
+const EVENT_NAME = "Energy on the Rocks · Tamca Night Party";
 const SEND_CONFIRMATION = true;
+
+const AWS_REGION = "ap-southeast-1";
+const MAIL_FROM = "noreply@yourdomain.com";
+const MAIL_FROM_NAME = "Energy on the Rocks";
+
 const QR_API = "https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=8&data=";
 
-const ANNOUNCE_SUBJECT = "อัปเดตงานปาร์ตี้ Booth Crew Night";
+const ANNOUNCE_SUBJECT = "อัปเดตงาน Energy on the Rocks · Tamca Night Party";
 const ANNOUNCE_HTML =
   "<div style='font-family:Arial,sans-serif;font-size:15px;color:#1f1a26;line-height:1.7'>" +
   "<p>สวัสดีทีมงานทุกคน</p>" +
   "<p>รายละเอียดงานปาร์ตี้อัปเดตแล้ว โปรดตรวจสอบวันเวลาและสถานที่อีกครั้ง แล้วเจอกันในงาน</p>" +
+  "<p>เสาร์ 22 สิงหาคม 2569 · Garden in the Sky (Hall 1) สวนนงนุช</p>" +
   "<p>ขอบคุณครับ</p></div>";
 
 const OPT_HEADERS = ["ประเภทบัตร", "สถานะการเข้าพัก"];
@@ -42,8 +48,21 @@ function onOpen() {
   SpreadsheetApp.getUi()
     .createMenu("ระบบลงทะเบียน")
     .addItem("Initialize ชีท", "initialize")
+    .addItem("ตั้งค่า Amazon SES Key", "setupMailKey")
     .addItem("ส่งอีเมลประกาศถึงทุกคน", "sendAnnouncement")
     .addToUi();
+}
+
+function setupMailKey() {
+  const ui = SpreadsheetApp.getUi();
+  const a = ui.prompt("Amazon SES", "วาง AWS Access Key ID", ui.ButtonSet.OK_CANCEL);
+  if (a.getSelectedButton() !== ui.Button.OK) return;
+  const s = ui.prompt("Amazon SES", "วาง AWS Secret Access Key", ui.ButtonSet.OK_CANCEL);
+  if (s.getSelectedButton() !== ui.Button.OK) return;
+  const props = PropertiesService.getScriptProperties();
+  props.setProperty("AWS_ACCESS_KEY_ID", a.getResponseText().trim());
+  props.setProperty("AWS_SECRET_ACCESS_KEY", s.getResponseText().trim());
+  ui.alert("บันทึก AWS Key เรียบร้อย");
 }
 
 function getDbSheet_() {
@@ -145,37 +164,119 @@ function addRecord(record) {
   return jsonOut_({ ok: true, row: target });
 }
 
+function hex_(bytes) {
+  let s = "";
+  for (let i = 0; i < bytes.length; i++) {
+    let b = (bytes[i] & 0xff).toString(16);
+    if (b.length < 2) b = "0" + b;
+    s += b;
+  }
+  return s;
+}
+
+function bytes_(str) {
+  return Utilities.newBlob(str).getBytes();
+}
+
+function sha256hex_(str) {
+  return hex_(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, str, Utilities.Charset.UTF_8));
+}
+
+function hmac_(keyBytes, msg) {
+  return Utilities.computeHmacSha256Signature(bytes_(msg), keyBytes);
+}
+
+function awsSesSend_(toAddress, subject, html) {
+  const props = PropertiesService.getScriptProperties();
+  const accessKey = props.getProperty("AWS_ACCESS_KEY_ID");
+  const secret = props.getProperty("AWS_SECRET_ACCESS_KEY");
+  if (!accessKey || !secret) throw new Error("ยังไม่ได้ตั้งค่า AWS Key");
+
+  const host = "email." + AWS_REGION + ".amazonaws.com";
+  const uri = "/v2/email/outbound-emails";
+  const endpoint = "https://" + host + uri;
+
+  const body = JSON.stringify({
+    FromEmailAddress: MAIL_FROM_NAME + " <" + MAIL_FROM + ">",
+    Destination: { ToAddresses: [toAddress] },
+    Content: {
+      Simple: {
+        Subject: { Data: subject, Charset: "UTF-8" },
+        Body: { Html: { Data: html, Charset: "UTF-8" } }
+      }
+    }
+  });
+
+  const now = new Date();
+  const amzDate = Utilities.formatDate(now, "UTC", "yyyyMMdd'T'HHmmss'Z'");
+  const dateStamp = Utilities.formatDate(now, "UTC", "yyyyMMdd");
+
+  const payloadHash = sha256hex_(body);
+  const canonicalHeaders = "content-type:application/json\n" + "host:" + host + "\n" + "x-amz-date:" + amzDate + "\n";
+  const signedHeaders = "content-type;host;x-amz-date";
+  const canonicalRequest = ["POST", uri, "", canonicalHeaders, signedHeaders, payloadHash].join("\n");
+
+  const scope = dateStamp + "/" + AWS_REGION + "/ses/aws4_request";
+  const stringToSign = ["AWS4-HMAC-SHA256", amzDate, scope, sha256hex_(canonicalRequest)].join("\n");
+
+  const kDate = hmac_(bytes_("AWS4" + secret), dateStamp);
+  const kRegion = hmac_(kDate, AWS_REGION);
+  const kService = hmac_(kRegion, "ses");
+  const kSigning = hmac_(kService, "aws4_request");
+  const signature = hex_(Utilities.computeHmacSha256Signature(bytes_(stringToSign), kSigning));
+
+  const authorization =
+    "AWS4-HMAC-SHA256 Credential=" + accessKey + "/" + scope +
+    ", SignedHeaders=" + signedHeaders +
+    ", Signature=" + signature;
+
+  const res = UrlFetchApp.fetch(endpoint, {
+    method: "post",
+    contentType: "application/json",
+    headers: { "X-Amz-Date": amzDate, Authorization: authorization },
+    payload: body,
+    muteHttpExceptions: true
+  });
+
+  const code = res.getResponseCode();
+  if (code < 200 || code >= 300) {
+    throw new Error("SES " + code + ": " + res.getContentText());
+  }
+  return true;
+}
+
+function confirmationHtml_(r, token) {
+  const qr = QR_API + encodeURIComponent(r.cardNo + "-" + token);
+  return (
+    "<div style='font-family:Arial,sans-serif;max-width:480px;color:#1f1a26'>" +
+    "<h2 style='margin:0 0 4px'>ยืนยันการลงทะเบียน</h2>" +
+    "<p style='color:#55505d;margin:0 0 16px'>" + EVENT_NAME + "</p>" +
+    "<table style='font-size:14px;line-height:1.9'>" +
+    "<tr><td style='color:#8b8593'>บัตรเลขที่</td><td style='padding-left:16px'><b>" + r.cardNo + "</b> (" + r.tier + ")</td></tr>" +
+    "<tr><td style='color:#8b8593'>ชื่อ</td><td style='padding-left:16px'>" + r.firstName + " " + r.lastName + "</td></tr>" +
+    "<tr><td style='color:#8b8593'>โรงแรม</td><td style='padding-left:16px'>" + r.hotel + "</td></tr>" +
+    "<tr><td style='color:#8b8593'>วันที่เข้าพัก</td><td style='padding-left:16px'>" + r.checkinDate + " " + (r.checkinTime || "") + "</td></tr>" +
+    "</table>" +
+    "<p style='margin:18px 0 8px;font-size:14px'>QR ประจำตัว (ใช้แสดงตอนเข้าที่พัก)</p>" +
+    "<img src='" + qr + "' width='200' height='200' alt='QR' style='border:1px solid #e2dccd;border-radius:12px;padding:8px;background:#fff'/>" +
+    "<p style='color:#8b8593;font-size:12px;margin-top:16px'>อีเมลฉบับนี้ส่งอัตโนมัติจากระบบลงทะเบียน</p>" +
+    "</div>"
+  );
+}
+
 function sendConfirmation_(r, token) {
   if (!SEND_CONFIRMATION) return;
   try {
-    const qr = QR_API + encodeURIComponent(r.cardNo + "-" + token);
-    const html =
-      "<div style='font-family:Arial,sans-serif;max-width:480px;color:#1f1a26'>" +
-      "<h2 style='margin:0 0 4px'>ยืนยันการลงทะเบียน</h2>" +
-      "<p style='color:#55505d;margin:0 0 16px'>" + EVENT_NAME + "</p>" +
-      "<table style='font-size:14px;line-height:1.9'>" +
-      "<tr><td style='color:#8b8593'>บัตรเลขที่</td><td style='padding-left:16px'><b>" + r.cardNo + "</b> (" + r.tier + ")</td></tr>" +
-      "<tr><td style='color:#8b8593'>ชื่อ</td><td style='padding-left:16px'>" + r.firstName + " " + r.lastName + "</td></tr>" +
-      "<tr><td style='color:#8b8593'>โรงแรม</td><td style='padding-left:16px'>" + r.hotel + "</td></tr>" +
-      "<tr><td style='color:#8b8593'>วันที่เข้าพัก</td><td style='padding-left:16px'>" + r.checkinDate + " " + (r.checkinTime || "") + "</td></tr>" +
-      "</table>" +
-      "<p style='margin:18px 0 8px;font-size:14px'>QR ประจำตัว (ใช้แสดงตอนเข้าที่พัก)</p>" +
-      "<img src='" + qr + "' width='200' height='200' alt='QR' style='border:1px solid #e2dccd;border-radius:12px;padding:8px;background:#fff'/>" +
-      "<p style='color:#8b8593;font-size:12px;margin-top:16px'>อีเมลฉบับนี้ส่งอัตโนมัติจากระบบลงทะเบียน</p>" +
-      "</div>";
-    MailApp.sendEmail({
-      to: String(r.email).trim(),
-      subject: "ยืนยันการลงทะเบียน " + EVENT_NAME + " · บัตร " + r.cardNo,
-      htmlBody: html
-    });
+    awsSesSend_(String(r.email).trim(), "ยืนยันการลงทะเบียน " + EVENT_NAME + " · บัตร " + r.cardNo, confirmationHtml_(r, token));
   } catch (err) {}
 }
 
 function sendAnnouncement() {
+  const ui = SpreadsheetApp.getUi();
   const sheet = getDbSheet_();
   const lastRow = sheet.getLastRow();
   if (lastRow < 2) {
-    SpreadsheetApp.getUi().alert("ยังไม่มีข้อมูลผู้ลงทะเบียน");
+    ui.alert("ยังไม่มีข้อมูลผู้ลงทะเบียน");
     return;
   }
 
@@ -183,30 +284,30 @@ function sendAnnouncement() {
   const data = sheet.getRange(2, REC_START_COL, rows, REC_COLS).getValues();
   const emailIdx = 7;
   const announceIdx = 13;
-
+  const today = Utilities.formatDate(new Date(), TZ, "yyyy-MM-dd");
   const start = Date.now();
-  let quota = MailApp.getRemainingDailyQuota();
   let sent = 0;
 
   for (let i = 0; i < data.length; i++) {
+    if (Date.now() - start > 280000) break;
     const email = String(data[i][emailIdx] || "").trim();
     const done = String(data[i][announceIdx] || "").trim();
     if (!email || done) continue;
-    if (quota <= 0 || Date.now() - start > 300000) break;
     try {
-      MailApp.sendEmail({ to: email, subject: ANNOUNCE_SUBJECT, htmlBody: ANNOUNCE_HTML });
-      data[i][announceIdx] = "sent " + Utilities.formatDate(new Date(), TZ, "yyyy-MM-dd");
-      quota--;
+      awsSesSend_(email, ANNOUNCE_SUBJECT, ANNOUNCE_HTML);
+      data[i][announceIdx] = "sent " + today;
       sent++;
-    } catch (err) {}
+    } catch (err) {
+      break;
+    }
   }
 
-  const flags = data.map((r) => [r[announceIdx]]);
+  const flags = data.map(function (rw) {
+    return [rw[announceIdx]];
+  });
   sheet.getRange(2, REC_START_COL + announceIdx, flags.length, 1).setValues(flags);
 
-  SpreadsheetApp.getUi().alert(
-    "ส่งอีเมลรอบนี้ " + sent + " ฉบับ · โควตาคงเหลือวันนี้ " + MailApp.getRemainingDailyQuota() + "\nถ้ายังไม่ครบ ให้รันเมนูนี้อีกครั้งในวันถัดไป"
-  );
+  ui.alert("ส่งอีเมลรอบนี้ " + sent + " ฉบับ · ถ้ายังไม่ครบให้รันเมนูนี้อีกครั้ง (ระบบจะข้ามคนที่ส่งแล้ว)");
 }
 
 function jsonOut_(obj) {

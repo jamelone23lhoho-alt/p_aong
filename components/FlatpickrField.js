@@ -14,7 +14,6 @@ export default function FlatpickrField({ id, mode = "date", value, onValueChange
   useEffect(() => {
     const base = {
       allowInput: false,
-      disableMobile: true,
       onChange: (_dates, dateStr) => cbRef.current(dateStr)
     };
 
