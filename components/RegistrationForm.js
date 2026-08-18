@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import QRCode from "qrcode";
 import Spinner from "@/components/Spinner";
 import SavingOverlay from "@/components/SavingOverlay";
 import Segmented from "@/components/Segmented";
@@ -8,9 +9,9 @@ import FlatpickrField from "@/components/FlatpickrField";
 import FloatingInput from "@/components/FloatingInput";
 
 const TIER_COLOR = {
-  STANDARD: { c: "#6b7280", s: "rgba(107,114,128,0.14)" },
-  GOLD: { c: "#b3892f", s: "rgba(179,137,47,0.16)" },
-  PLATINUM: { c: "#8793a8", s: "rgba(135,147,168,0.16)" }
+  STANDARD: { c: "#8494a6", s: "rgba(132,148,166,0.18)" },
+  GOLD: { c: "#e2b23c", s: "rgba(226,178,60,0.18)" },
+  PLATINUM: { c: "#bcc9db", s: "rgba(188,201,219,0.18)" }
 };
 
 const EMPTY = {
@@ -31,6 +32,12 @@ const box = (err) =>
   "w-full rounded-xl border bg-field px-4 py-3.5 font-body text-[15px] text-ink placeholder:text-inkfaint transition duration-200 focus:bg-fieldfocus focus:outline-none focus:ring-4 focus:ring-brass/15 " +
   (err ? "border-danger" : "border-line focus:border-brass");
 
+function genToken() {
+  const bytes = new Uint8Array(10);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join("");
+}
+
 export default function RegistrationForm() {
   const [status, setStatus] = useState("loading");
   const [loadError, setLoadError] = useState("");
@@ -39,6 +46,8 @@ export default function RegistrationForm() {
   const [errors, setErrors] = useState({});
   const [submitError, setSubmitError] = useState("");
   const [savedNo, setSavedNo] = useState("");
+  const [savedToken, setSavedToken] = useState("");
+  const qrRef = useRef(null);
 
   const loadOptions = async () => {
     setStatus("loading");
@@ -61,6 +70,16 @@ export default function RegistrationForm() {
   useEffect(() => {
     loadOptions();
   }, []);
+
+  useEffect(() => {
+    if (status === "done" && savedToken && qrRef.current) {
+      QRCode.toCanvas(qrRef.current, `${savedNo}-${savedToken}`, {
+        width: 220,
+        margin: 1,
+        color: { dark: "#1f1a26", light: "#ffffff" }
+      });
+    }
+  }, [status, savedToken, savedNo]);
 
   const tierStyle = useMemo(() => {
     const t = TIER_COLOR[form.tier] || TIER_COLOR.STANDARD;
@@ -94,16 +113,18 @@ export default function RegistrationForm() {
       setSubmitError("กรุณากรอกข้อมูลให้ครบและถูกต้องก่อนยืนยัน");
       return;
     }
+    const token = genToken();
     setStatus("saving");
     try {
       const res = await fetch("/api/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form)
+        body: JSON.stringify({ ...form, token })
       });
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || "บันทึกไม่สำเร็จ");
       setSavedNo(form.cardNo);
+      setSavedToken(token);
       setStatus("done");
     } catch (err) {
       setSubmitError(err.message || "บันทึกไม่สำเร็จ กรุณาลองอีกครั้ง");
@@ -111,11 +132,20 @@ export default function RegistrationForm() {
     }
   };
 
+  const downloadQR = () => {
+    if (!qrRef.current) return;
+    const link = document.createElement("a");
+    link.download = `guest-pass-${savedNo}.png`;
+    link.href = qrRef.current.toDataURL("image/png");
+    link.click();
+  };
+
   const reset = () => {
     setForm(EMPTY);
     setErrors({});
     setSubmitError("");
     setSavedNo("");
+    setSavedToken("");
     setStatus("ready");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -149,12 +179,23 @@ export default function RegistrationForm() {
           </svg>
         </div>
         <h2>ลงทะเบียนเรียบร้อย</h2>
-        <p>บันทึกข้อมูลบัตรเข้าพักของคุณเข้าสู่ระบบแล้ว แล้วเจอกันที่งานปาร์ตี้</p>
+        <p>นี่คือ QR ประจำตัวของคุณ ใช้แสดงตอนเข้าที่พัก แล้วเจอกันที่งานปาร์ตี้</p>
+
+        <div className="qr-box">
+          <canvas ref={qrRef} className="qr-canvas" />
+        </div>
+
         <div className="receipt">
           <span>บัตรเลขที่</span>
           <span>{savedNo}</span>
         </div>
-        <div>
+
+        <p className="qr-note">โปรดกดดาวน์โหลดรูป QR เก็บไว้ในเครื่อง หรือแคปหน้าจอไว้ เพราะระบบจะไม่แสดงซ้ำ</p>
+
+        <button type="button" className="submit" onClick={downloadQR}>
+          ดาวน์โหลดรูป QR
+        </button>
+        <div style={{ marginTop: 10 }}>
           <button type="button" className="link-btn" onClick={reset}>
             ลงทะเบียนอีกคน
           </button>

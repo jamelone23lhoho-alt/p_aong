@@ -21,24 +21,21 @@ export default function FlatpickrField({ id, mode = "date", value, onValueChange
     const config =
       mode === "time"
         ? { ...base, enableTime: true, noCalendar: true, dateFormat: "H:i", time_24hr: true }
-        : {
-            ...base,
-            locale: Thai,
-            dateFormat: "Y-m-d",
-            altInput: true,
-            altFormat: "j F Y",
-            altInputClass: className
-          };
+        : { ...base, locale: Thai, dateFormat: "j F Y" };
 
     fpRef.current = flatpickr(inputRef.current, config);
     return () => {
-      if (fpRef.current) fpRef.current.destroy();
+      if (fpRef.current) {
+        fpRef.current.destroy();
+        fpRef.current = null;
+      }
     };
-  }, [mode, className]);
+  }, [mode]);
 
   useEffect(() => {
-    if (fpRef.current && value !== fpRef.current.input.value) {
-      fpRef.current.setDate(value || "", false);
+    const fp = fpRef.current;
+    if (fp && value !== fp.input.value) {
+      fp.setDate(value || "", false);
     }
   }, [value]);
 
