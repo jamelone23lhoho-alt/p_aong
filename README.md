@@ -1,4 +1,4 @@
-# ลงทะเบียนบัตรเข้าพัก · Booth Crew Night
+# ลงทะเบียนบัตรเข้าพัก · Booth Crew Nigh
 
 เว็บฟอร์มลงทะเบียนบัตรเข้าพักสำหรับงานปาร์ตี้ของทีมออกบูธ สร้างด้วย **Next.js** (App Router) ใช้ **Google Sheet เป็นฐานข้อมูล** ผ่าน Google Apps Script และ deploy บน **Vercel**
 
