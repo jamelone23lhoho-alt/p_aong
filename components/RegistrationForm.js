@@ -208,11 +208,11 @@ export default function RegistrationForm() {
           <div className="qr-box">
             {qrDataUrl && <img src={qrDataUrl} alt="QR บัตรเข้าพัก" className="qr-img" />}
           </div>
+        </div>
 
-          <div className="receipt">
-            <span>บัตรเลขที่</span>
-            <span>{savedNo}</span>
-          </div>
+        <div className="receipt">
+          <span>บัตรเลขที่</span>
+          <span>{savedNo}</span>
         </div>
 
         <p className="qr-note">กดปุ่มด้านล่างเพื่อบันทึกบัตรทั้งใบลงเครื่อง (หรือแคปหน้าจอไว้ก็ได้)</p>

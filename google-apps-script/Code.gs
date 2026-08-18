@@ -56,6 +56,9 @@ function onOpen() {
     .addItem("Initialize ชีท", "initialize")
     .addItem("ตั้งค่า Mailgun API Key", "setupMailKey")
     .addItem("ส่งอีเมลประกาศถึงทุกคน", "sendAnnouncement")
+    .addSeparator()
+    .addItem("ทดสอบลิงก์รูปแบนเนอร์", "testBanner")
+    .addItem("ทดสอบส่งอีเมล", "testSendEmail")
     .addToUi();
 }
 
@@ -336,6 +339,54 @@ function stats(pin) {
     if (String(data[i][scanIdx] || "").trim()) checkedIn++;
   }
   return jsonOut_({ ok: true, total: total, checkedIn: checkedIn });
+}
+
+function testBanner() {
+  const ui = SpreadsheetApp.getUi();
+  try {
+    const res = UrlFetchApp.fetch(BANNER_URL, { muteHttpExceptions: true, followRedirects: true });
+    const code = res.getResponseCode();
+    const headers = res.getHeaders();
+    const type = headers["Content-Type"] || headers["content-type"] || "-";
+    const bytes = res.getContent().length;
+    let verdict;
+    if (code === 200 && String(type).indexOf("image") === 0) verdict = "ใช้ได้ รูปโหลดได้ปกติ";
+    else if (code === 404) verdict = "ไม่พบไฟล์ (repo เป็น private หรือ path/branch ไม่ตรง)";
+    else verdict = "ผิดปกติ ตรวจ URL อีกครั้ง";
+    ui.alert(
+      "ทดสอบลิงก์แบนเนอร์\n\n" +
+      "URL: " + BANNER_URL + "\n\n" +
+      "HTTP: " + code + "\n" +
+      "Content-Type: " + type + "\n" +
+      "ขนาด: " + bytes + " bytes\n\n" +
+      "ผล: " + verdict
+    );
+  } catch (err) {
+    ui.alert("เรียกลิงก์ไม่สำเร็จ: " + err.message);
+  }
+}
+
+function testSendEmail() {
+  const ui = SpreadsheetApp.getUi();
+  const resp = ui.prompt("ทดสอบส่งอีเมล", "ใส่อีเมลผู้รับสำหรับทดสอบ", ui.ButtonSet.OK_CANCEL);
+  if (resp.getSelectedButton() !== ui.Button.OK) return;
+  const to = resp.getResponseText().trim();
+  if (!to) return;
+  const r = {
+    cardNo: "999",
+    tier: "PLATINUM",
+    firstName: "ทดสอบ",
+    lastName: "ระบบ",
+    hotel: "-",
+    checkinDate: "-",
+    checkinTime: ""
+  };
+  try {
+    mailgunSend_([to], "Temca Night Party (ทดสอบ)", confirmationHtml_(r, "testtoken1234"));
+    ui.alert("ส่งอีเมลทดสอบไปที่ " + to + " แล้ว ลองเปิดเช็ครูปแบนเนอร์");
+  } catch (err) {
+    ui.alert("ส่งไม่สำเร็จ: " + err.message);
+  }
 }
 
 function jsonOut_(obj) {
