@@ -594,7 +594,15 @@ body {
   width: auto;
 }
 
-.flatpickr-input {
+input[type="date"],
+input[type="time"] {
+  color-scheme: dark;
+  min-height: 50px;
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+  opacity: 0.7;
   cursor: pointer;
 }
 

@@ -11,8 +11,8 @@ const SEND_CONFIRMATION = true;
 
 const MAILGUN_DOMAIN = "javaoutrunners.com";
 const MAILGUN_REGION = "us";
-const MAIL_FROM = "noreply@javaoutrunners.com";
-const MAIL_FROM_NAME = "Temca Night Party";
+const MAIL_FROM = "temcaparty@javaoutrunners.com";
+const MAIL_FROM_NAME = "TemcaParty";
 const REPLY_TO = "temcaparty@gmail.com";
 
 const QR_API = "https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=8&data=";
@@ -173,8 +173,8 @@ function mailgunSend_(recipients, subject, html) {
   const endpoint = base + "/v3/" + MAILGUN_DOMAIN + "/messages";
 
   const payload = {
-    from: MAIL_FROM_NAME + " <" + MAIL_FROM + ">",
-    to: recipients,
+    from: MAIL_FROM_NAME ? MAIL_FROM_NAME + " <" + MAIL_FROM + ">" : MAIL_FROM,
+    to: recipients.join(","),
     subject: subject,
     html: html
   };
@@ -216,7 +216,7 @@ function confirmationHtml_(r, token) {
 function sendConfirmation_(r, token) {
   if (!SEND_CONFIRMATION) return;
   try {
-    mailgunSend_([String(r.email).trim()], "ยืนยันการลงทะเบียน " + EVENT_NAME + " · บัตร " + r.cardNo, confirmationHtml_(r, token));
+    mailgunSend_([String(r.email).trim()], "Temca Night Party", confirmationHtml_(r, token));
   } catch (err) {}
 }
 
