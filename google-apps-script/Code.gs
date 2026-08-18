@@ -17,7 +17,7 @@ const MAIL_FROM_NAME = "TemcaParty";
 const REPLY_TO = "temcaparty@gmail.com";
 
 const QR_API = "https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=8&data=";
-const BANNER_URL = "https://javaoutrunners.com/assets/email-banner.jpg";
+const BANNER_URL = "https://raw.githubusercontent.com/jamelone23lhoho-alt/p_aong/main/public/assets/email-banner.jpg";
 const ANNOUNCE_BATCH = 100;
 
 const ANNOUNCE_SUBJECT = "อัปเดตงาน Energy on the Rocks · Tamca Night Party";
