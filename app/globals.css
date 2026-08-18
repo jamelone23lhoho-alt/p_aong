@@ -1,3 +1,21 @@
+@import "tailwindcss";
+
+@theme {
+  --color-paper: #f1ece1;
+  --color-paperedge: #e2dccd;
+  --color-ink: #1f1a26;
+  --color-inksoft: #55505d;
+  --color-inkfaint: #8b8593;
+  --color-line: #d8d1c2;
+  --color-field: #f8f5ee;
+  --color-fieldfocus: #fffdf8;
+  --color-brass: #b3892f;
+  --color-brassdeep: #8a681f;
+  --color-danger: #a23b2e;
+  --font-display: "Trirong", serif;
+  --font-body: "Anuphan", system-ui, sans-serif;
+}
+
 :root {
   --night-1: #221b2e;
   --night-2: #14111c;
@@ -17,8 +35,6 @@
   --ok: #2f6d55;
   --radius: 14px;
   --radius-sm: 10px;
-  --font-display: "Bai Jamjuree", system-ui, sans-serif;
-  --font-body: "IBM Plex Sans Thai", system-ui, sans-serif;
   --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
 }
 

@@ -5,7 +5,7 @@ import flatpickr from "flatpickr";
 import { Thai } from "flatpickr/dist/l10n/th.js";
 import "flatpickr/dist/flatpickr.min.css";
 
-export default function FlatpickrField({ id, mode = "date", value, onValueChange, placeholder }) {
+export default function FlatpickrField({ id, mode = "date", value, onValueChange, placeholder, className }) {
   const inputRef = useRef(null);
   const fpRef = useRef(null);
   const cbRef = useRef(onValueChange);
@@ -21,13 +21,20 @@ export default function FlatpickrField({ id, mode = "date", value, onValueChange
     const config =
       mode === "time"
         ? { ...base, enableTime: true, noCalendar: true, dateFormat: "H:i", time_24hr: true }
-        : { ...base, locale: Thai, dateFormat: "Y-m-d", altInput: true, altFormat: "j F Y" };
+        : {
+            ...base,
+            locale: Thai,
+            dateFormat: "Y-m-d",
+            altInput: true,
+            altFormat: "j F Y",
+            altInputClass: className
+          };
 
     fpRef.current = flatpickr(inputRef.current, config);
     return () => {
       if (fpRef.current) fpRef.current.destroy();
     };
-  }, [mode]);
+  }, [mode, className]);
 
   useEffect(() => {
     if (fpRef.current && value !== fpRef.current.input.value) {
@@ -39,7 +46,7 @@ export default function FlatpickrField({ id, mode = "date", value, onValueChange
     <input
       id={id}
       ref={inputRef}
-      className="input flatpickr-input"
+      className={className}
       placeholder={placeholder}
       readOnly
     />

@@ -5,6 +5,7 @@ import Spinner from "@/components/Spinner";
 import SavingOverlay from "@/components/SavingOverlay";
 import Segmented from "@/components/Segmented";
 import FlatpickrField from "@/components/FlatpickrField";
+import FloatingInput from "@/components/FloatingInput";
 
 const TIER_COLOR = {
   STANDARD: { c: "#6b7280", s: "rgba(107,114,128,0.14)" },
@@ -19,16 +20,21 @@ const EMPTY = {
   lastName: "",
   role: "",
   phone: "",
+  email: "",
   company: "",
   hotel: "",
   checkinDate: "",
   checkinTime: ""
 };
 
+const box = (err) =>
+  "w-full rounded-xl border bg-field px-4 py-3.5 font-body text-[15px] text-ink placeholder:text-inkfaint transition duration-200 focus:bg-fieldfocus focus:outline-none focus:ring-4 focus:ring-brass/15 " +
+  (err ? "border-danger" : "border-line focus:border-brass");
+
 export default function RegistrationForm() {
   const [status, setStatus] = useState("loading");
   const [loadError, setLoadError] = useState("");
-  const [options, setOptions] = useState({ tiers: [], roles: [], hotels: [], companies: [] });
+  const [options, setOptions] = useState({ tiers: [], roles: [] });
   const [form, setForm] = useState(EMPTY);
   const [errors, setErrors] = useState({});
   const [submitError, setSubmitError] = useState("");
@@ -43,9 +49,7 @@ export default function RegistrationForm() {
       if (!res.ok || !data.ok) throw new Error(data.error || "โหลดตัวเลือกไม่สำเร็จ");
       setOptions({
         tiers: data.tiers?.length ? data.tiers : ["STANDARD", "GOLD", "PLATINUM"],
-        roles: data.roles?.length ? data.roles : ["ผู้เข้าพักหลัก", "ผู้เข้าร่วมพัก"],
-        hotels: data.hotels || [],
-        companies: data.companies || []
+        roles: data.roles?.length ? data.roles : ["ผู้เข้าพักหลัก", "ผู้เข้าร่วมพัก"]
       });
       setStatus("ready");
     } catch (err) {
@@ -76,8 +80,9 @@ export default function RegistrationForm() {
     if (!form.lastName.trim()) e.lastName = true;
     if (!form.role) e.role = true;
     if (!/^\d{9,10}$/.test(form.phone.replace(/\D/g, ""))) e.phone = true;
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) e.email = true;
     if (!form.company.trim()) e.company = true;
-    if (!form.hotel) e.hotel = true;
+    if (!form.hotel.trim()) e.hotel = true;
     if (!form.checkinDate) e.checkinDate = true;
     setErrors(e);
     return Object.keys(e).length === 0;
@@ -187,7 +192,7 @@ export default function RegistrationForm() {
             </label>
             <input
               id="cardNo"
-              className={errors.cardNo ? "input input--pin field-error" : "input input--pin"}
+              className={box(errors.cardNo) + " text-center font-display text-3xl font-semibold tracking-[0.35em] py-4"}
               inputMode="numeric"
               maxLength={3}
               placeholder="000"
@@ -198,121 +203,38 @@ export default function RegistrationForm() {
 
           <div className="group">
             <span className="field-label">ประเภทบัตร</span>
-            <Segmented
-              options={options.tiers}
-              value={form.tier}
-              onChange={set("tier")}
-              tier
-              ariaLabel="ประเภทบัตร"
-            />
+            <Segmented options={options.tiers} value={form.tier} onChange={set("tier")} tier ariaLabel="ประเภทบัตร" />
           </div>
 
           <div className="grid-2">
-            <div className="group">
-              <label className="field-label" htmlFor="firstName">ชื่อ</label>
-              <input
-                id="firstName"
-                className={errors.firstName ? "input field-error" : "input"}
-                placeholder="ชื่อจริง"
-                value={form.firstName}
-                onChange={(e) => set("firstName")(e.target.value)}
-              />
-            </div>
-            <div className="group">
-              <label className="field-label" htmlFor="lastName">นามสกุล</label>
-              <input
-                id="lastName"
-                className={errors.lastName ? "input field-error" : "input"}
-                placeholder="นามสกุล"
-                value={form.lastName}
-                onChange={(e) => set("lastName")(e.target.value)}
-              />
-            </div>
+            <FloatingInput id="firstName" label="ชื่อ" value={form.firstName} onChange={(e) => set("firstName")(e.target.value)} error={errors.firstName} />
+            <FloatingInput id="lastName" label="นามสกุล" value={form.lastName} onChange={(e) => set("lastName")(e.target.value)} error={errors.lastName} />
           </div>
 
           <div className="group">
             <span className="field-label">สถานะการเข้าพัก</span>
-            <Segmented
-              options={options.roles}
-              value={form.role}
-              onChange={set("role")}
-              ariaLabel="สถานะการเข้าพัก"
-            />
+            <Segmented options={options.roles} value={form.role} onChange={set("role")} ariaLabel="สถานะการเข้าพัก" />
           </div>
 
-          <div className="group">
-            <label className="field-label" htmlFor="phone">เบอร์โทร</label>
-            <input
-              id="phone"
-              className={errors.phone ? "input field-error" : "input"}
-              inputMode="tel"
-              placeholder="08x-xxx-xxxx"
-              value={form.phone}
-              onChange={(e) => set("phone")(e.target.value)}
-            />
+          <div className="grid-2">
+            <FloatingInput id="phone" label="เบอร์โทร" value={form.phone} onChange={(e) => set("phone")(e.target.value)} error={errors.phone} inputMode="tel" autoComplete="tel" />
+            <FloatingInput id="email" label="อีเมล" value={form.email} onChange={(e) => set("email")(e.target.value)} error={errors.email} inputMode="email" autoComplete="email" />
           </div>
 
-          <div className="group">
-            <label className="field-label" htmlFor="company">บริษัท</label>
-            <input
-              id="company"
-              className={errors.company ? "input field-error" : "input"}
-              placeholder="ชื่อบริษัทหรือทีมออกบูธ"
-              list="company-list"
-              value={form.company}
-              onChange={(e) => set("company")(e.target.value)}
-            />
-            <datalist id="company-list">
-              {options.companies.map((c) => (
-                <option key={c} value={c} />
-              ))}
-            </datalist>
-          </div>
+          <FloatingInput id="company" label="บริษัท / ทีมออกบูธ" value={form.company} onChange={(e) => set("company")(e.target.value)} error={errors.company} />
 
-          <div className="group">
-            <label className="field-label" htmlFor="hotel">โรงแรมที่เข้าพัก</label>
-            <select
-              id="hotel"
-              className={errors.hotel ? "select field-error" : "select"}
-              value={form.hotel}
-              onChange={(e) => set("hotel")(e.target.value)}
-            >
-              <option value="" disabled>
-                เลือกโรงแรม
-              </option>
-              {options.hotels.map((h) => (
-                <option key={h} value={h}>
-                  {h}
-                </option>
-              ))}
-            </select>
-          </div>
+          <FloatingInput id="hotel" label="โรงแรมที่เข้าพัก" value={form.hotel} onChange={(e) => set("hotel")(e.target.value)} error={errors.hotel} />
 
           <div className="grid-2">
             <div className="group">
               <label className="field-label" htmlFor="checkinDate">วันที่เข้าพัก</label>
-              <FlatpickrField
-                id="checkinDate"
-                mode="date"
-                value={form.checkinDate}
-                onValueChange={set("checkinDate")}
-                placeholder="เลือกวันที่"
-              />
-              {errors.checkinDate && (
-                <span style={{ fontSize: 12, color: "var(--danger)" }}>กรุณาเลือกวันที่</span>
-              )}
+              <FlatpickrField id="checkinDate" mode="date" value={form.checkinDate} onValueChange={set("checkinDate")} placeholder="เลือกวันที่" className={box(errors.checkinDate) + " cursor-pointer"} />
             </div>
             <div className="group">
               <label className="field-label" htmlFor="checkinTime">
                 เวลาเช็คอิน <small>ถ้ามี</small>
               </label>
-              <FlatpickrField
-                id="checkinTime"
-                mode="time"
-                value={form.checkinTime}
-                onValueChange={set("checkinTime")}
-                placeholder="เช่น 14:00"
-              />
+              <FlatpickrField id="checkinTime" mode="time" value={form.checkinTime} onValueChange={set("checkinTime")} placeholder="เช่น 14:00" className={box(false) + " cursor-pointer"} />
             </div>
           </div>
 
