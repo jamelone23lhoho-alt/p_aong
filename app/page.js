@@ -12,6 +12,17 @@ export default function Page() {
         <span className="eventchip">เสาร์ 22 สิงหาคม 2569 · Garden in the Sky (Hall 1) สวนนงนุช</span>
       </header>
 
+      <section className="artist">
+        <p className="artist__eyebrow">
+          ความมันส์แบบจัดเต็ม: กระโดดให้สุดเสียงกับ <b>ศิลปินร็อคเบอร์หนึ่ง</b>
+        </p>
+        <div className="artist__stage">
+          <img className="artist__photo" src="/assets/band.png" alt="วงดนตรีศิลปินร็อคที่มาร่วมงาน" />
+          <img className="artist__word" src="/assets/bodyslam.png" alt="bodyslam" />
+        </div>
+        <p className="artist__tag">พร้อมกิจกรรมร่วมสนุก ลุ้นรับโชคใหญ่แจกหนักตลอดคืน · เตรียมตัวมาสปาร์คความมันส์ให้สุดเหวี่ยง</p>
+      </section>
+
       <RegistrationForm />
 
       <footer className="sponsors">
