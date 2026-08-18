@@ -4,10 +4,11 @@ const TZ = "Asia/Bangkok";
 const OPT_START_COL = 1;
 const OPT_COLS = 2;
 const REC_START_COL = 4;
-const REC_COLS = 14;
+const REC_COLS = 15;
 
 const EVENT_NAME = "Energy on the Rocks · Tamca Night Party";
 const SEND_CONFIRMATION = true;
+const CHECKIN_PIN = "1150";
 
 const MAILGUN_DOMAIN = "javaoutrunners.com";
 const MAILGUN_REGION = "us";
@@ -16,6 +17,7 @@ const MAIL_FROM_NAME = "TemcaParty";
 const REPLY_TO = "temcaparty@gmail.com";
 
 const QR_API = "https://api.qrserver.com/v1/create-qr-code/?size=260x260&margin=8&data=";
+const BANNER_URL = "https://javaoutrunners.com/assets/email-banner.jpg";
 const ANNOUNCE_BATCH = 100;
 
 const ANNOUNCE_SUBJECT = "อัปเดตงาน Energy on the Rocks · Tamca Night Party";
@@ -41,7 +43,8 @@ const REC_HEADERS = [
   "วันที่เข้าพัก",
   "เวลาเช็คอิน",
   "รหัส QR",
-  "สถานะส่งประกาศ"
+  "สถานะส่งประกาศ",
+  "เวลาสแกนเข้างาน"
 ];
 
 const DEFAULT_TIERS = ["STANDARD", "GOLD", "PLATINUM"];
@@ -195,21 +198,22 @@ function mailgunSend_(recipients, subject, html) {
 }
 
 function confirmationHtml_(r, token) {
-  const qr = QR_API + encodeURIComponent(r.cardNo + "-" + token);
+  const code = r.cardNo + "-" + token;
+  const qr = QR_API + encodeURIComponent(code);
   return (
-    "<div style='font-family:Arial,sans-serif;max-width:480px;color:#1f1a26'>" +
-    "<h2 style='margin:0 0 4px'>ยืนยันการลงทะเบียน</h2>" +
-    "<p style='color:#55505d;margin:0 0 16px'>" + EVENT_NAME + "</p>" +
-    "<table style='font-size:14px;line-height:1.9'>" +
-    "<tr><td style='color:#8b8593'>บัตรเลขที่</td><td style='padding-left:16px'><b>" + r.cardNo + "</b> (" + r.tier + ")</td></tr>" +
-    "<tr><td style='color:#8b8593'>ชื่อ</td><td style='padding-left:16px'>" + r.firstName + " " + r.lastName + "</td></tr>" +
-    "<tr><td style='color:#8b8593'>โรงแรม</td><td style='padding-left:16px'>" + r.hotel + "</td></tr>" +
-    "<tr><td style='color:#8b8593'>วันที่เข้าพัก</td><td style='padding-left:16px'>" + r.checkinDate + " " + (r.checkinTime || "") + "</td></tr>" +
-    "</table>" +
-    "<p style='margin:18px 0 8px;font-size:14px'>QR ประจำตัว (ใช้แสดงตอนเข้าที่พัก)</p>" +
-    "<img src='" + qr + "' width='200' height='200' alt='QR' style='border:1px solid #e2dccd;border-radius:12px;padding:8px;background:#fff'/>" +
-    "<p style='color:#8b8593;font-size:12px;margin-top:16px'>อีเมลฉบับนี้ส่งอัตโนมัติจากระบบลงทะเบียน</p>" +
-    "</div>"
+    '<div style="margin:0;padding:0;background:#eef1f4;">' +
+    '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef1f4;padding:0 0 26px;"><tr><td align="center">' +
+    '<table role="presentation" width="460" cellpadding="0" cellspacing="0" style="max-width:460px;width:100%;background:#ffffff;border-radius:0 0 16px 16px;overflow:hidden;font-family:Arial,Helvetica,sans-serif;">' +
+    '<tr><td style="padding:0;"><img src="' + BANNER_URL + '" width="460" style="display:block;width:100%;height:auto;border:0;" alt="Energy on the Rocks"/></td></tr>' +
+    '<tr><td align="center" style="padding:28px 24px 6px;"><div style="font-size:24px;font-weight:bold;color:#2fbf71;">Registration Success !</div></td></tr>' +
+    '<tr><td align="center" style="padding:2px 24px 4px;"><div style="font-size:18px;color:#1f6fb2;"><b>Welcome</b>, you are registered of :</div></td></tr>' +
+    '<tr><td align="center" style="padding:14px 24px 2px;"><div style="font-size:18px;font-weight:bold;color:#1a2330;">TEMCA NIGHT PARTY 2026</div></td></tr>' +
+    '<tr><td align="center" style="padding:6px 24px 2px;"><div style="font-size:15px;color:#3a4653;line-height:1.7;">22 August 2026 18:00-22:00<br/>Garden in the Sky ( Hall 1 )</div></td></tr>' +
+    '<tr><td align="center" style="padding:12px 24px 2px;"><div style="font-size:13px;color:#8b93a0;">บัตรเลขที่ ' + r.cardNo + " · " + r.tier + '</div></td></tr>' +
+    '<tr><td align="center" style="padding:16px 24px 8px;"><img src="' + qr + '" width="180" height="180" style="display:block;border:0;" alt="QR"/></td></tr>' +
+    '<tr><td align="center" style="padding:2px 24px 4px;"><div style="font-size:13px;color:#3a4653;">Your reference <b>ID : ' + code + '</b></div></td></tr>' +
+    '<tr><td align="center" style="padding:10px 24px 28px;"><div style="font-size:16px;font-weight:bold;color:#1a2330;">' + r.firstName + " " + r.lastName + '</div></td></tr>' +
+    '</table></td></tr></table></div>'
   );
 }
 
@@ -274,6 +278,66 @@ function sendAnnouncement() {
   ui.alert("ส่งอีเมลรอบนี้ " + sent + " ฉบับ · ถ้ายังไม่ครบให้รันเมนูนี้อีกครั้ง (ระบบจะข้ามคนที่ส่งแล้ว)");
 }
 
+function checkin(code, pin) {
+  if (String(pin || "") !== CHECKIN_PIN) return jsonOut_({ ok: false, error: "PIN ไม่ถูกต้อง" });
+
+  const raw = String(code || "").trim();
+  const dash = raw.indexOf("-");
+  if (dash < 1) return jsonOut_({ ok: true, result: "invalid" });
+  const cardNo = raw.slice(0, dash).trim();
+  const token = raw.slice(dash + 1).trim();
+
+  const sheet = getDbSheet_();
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return jsonOut_({ ok: true, result: "invalid" });
+
+  const data = sheet.getRange(2, REC_START_COL, lastRow - 1, REC_COLS).getValues();
+  const cardIdx = 1, tierIdx = 2, firstIdx = 3, lastIdx = 4, roleIdx = 5, hotelIdx = 9, tokenIdx = 12, scanIdx = 14;
+
+  for (let i = 0; i < data.length; i++) {
+    if (String(data[i][cardIdx]).trim() === cardNo && String(data[i][tokenIdx]).trim() === token) {
+      const out = {
+        ok: true,
+        cardNo: cardNo,
+        tier: data[i][tierIdx],
+        name: (data[i][firstIdx] + " " + data[i][lastIdx]).trim(),
+        role: data[i][roleIdx],
+        hotel: data[i][hotelIdx]
+      };
+      const existing = String(data[i][scanIdx] || "").trim();
+      if (existing) {
+        out.result = "already";
+        out.at = existing;
+        return jsonOut_(out);
+      }
+      const now = Utilities.formatDate(new Date(), TZ, "yyyy-MM-dd HH:mm:ss");
+      sheet.getRange(2 + i, REC_START_COL + scanIdx, 1, 1).setValue(now);
+      out.result = "success";
+      out.at = now;
+      return jsonOut_(out);
+    }
+  }
+  return jsonOut_({ ok: true, result: "invalid" });
+}
+
+function stats(pin) {
+  if (String(pin || "") !== CHECKIN_PIN) return jsonOut_({ ok: false, error: "PIN ไม่ถูกต้อง" });
+  const sheet = getDbSheet_();
+  const lastRow = sheet.getLastRow();
+  if (lastRow < 2) return jsonOut_({ ok: true, total: 0, checkedIn: 0 });
+
+  const data = sheet.getRange(2, REC_START_COL, lastRow - 1, REC_COLS).getValues();
+  const cardIdx = 1, scanIdx = 14;
+  let total = 0;
+  let checkedIn = 0;
+  for (let i = 0; i < data.length; i++) {
+    if (String(data[i][cardIdx]).trim() === "") continue;
+    total++;
+    if (String(data[i][scanIdx] || "").trim()) checkedIn++;
+  }
+  return jsonOut_({ ok: true, total: total, checkedIn: checkedIn });
+}
+
 function jsonOut_(obj) {
   return ContentService.createTextOutput(JSON.stringify(obj)).setMimeType(ContentService.MimeType.JSON);
 }
@@ -282,6 +346,8 @@ function doGet(e) {
   const action = e && e.parameter ? e.parameter.action : "";
   if (action === "init") return initialize();
   if (action === "options") return getOptions();
+  if (action === "checkin") return checkin(e.parameter.code, e.parameter.pin);
+  if (action === "stats") return stats(e.parameter.pin);
   return jsonOut_({ ok: true, message: "ready" });
 }
 

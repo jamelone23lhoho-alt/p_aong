@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import QRCode from "qrcode";
 import Spinner from "@/components/Spinner";
 import SavingOverlay from "@/components/SavingOverlay";
@@ -48,6 +48,7 @@ export default function RegistrationForm() {
   const [savedNo, setSavedNo] = useState("");
   const [savedToken, setSavedToken] = useState("");
   const [qrDataUrl, setQrDataUrl] = useState("");
+  const captureRef = useRef(null);
 
   const loadOptions = async () => {
     setStatus("loading");
@@ -135,25 +136,28 @@ export default function RegistrationForm() {
   };
 
   const saveQR = async () => {
-    if (!qrDataUrl) return;
+    const node = captureRef.current;
+    if (!node) return;
     try {
-      const blob = await (await fetch(qrDataUrl)).blob();
-      const file = new File([blob], `guest-pass-${savedNo}.png`, { type: "image/png" });
+      const html2canvas = (await import("html2canvas")).default;
+      const canvas = await html2canvas(node, { backgroundColor: "#0a1524", scale: 2, useCORS: true });
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/png"));
+      if (!blob) return;
+      const file = new File([blob], `temca-pass-${savedNo}.png`, { type: "image/png" });
       if (navigator.canShare && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: "Guest Pass QR", text: "QR บัตรเข้าพัก" });
+        await navigator.share({ files: [file], title: "Temca Night Party", text: "บัตรเลขที่ " + savedNo });
         return;
       }
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `guest-pass-${savedNo}.png`;
+      a.download = `temca-pass-${savedNo}.png`;
       document.body.appendChild(a);
       a.click();
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1500);
     } catch (err) {
       if (err && err.name === "AbortError") return;
-      window.open(qrDataUrl, "_blank");
     }
   };
 
@@ -191,27 +195,29 @@ export default function RegistrationForm() {
   if (status === "done") {
     return (
       <div className="success" style={tierStyle}>
-        <div className="success__mark">
-          <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="20 6 9 17 4 12" />
-          </svg>
-        </div>
-        <h2>ลงทะเบียนเรียบร้อย</h2>
-        <p>นี่คือ QR ประจำตัวของคุณ ใช้แสดงตอนเข้าที่พัก แล้วเจอกันที่งานปาร์ตี้</p>
+        <div ref={captureRef} className="capture">
+          <div className="success__mark">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="20 6 9 17 4 12" />
+            </svg>
+          </div>
+          <h2>ลงทะเบียนเรียบร้อย</h2>
+          <p>นี่คือ QR ประจำตัวของคุณ ใช้แสดงตอนเข้าที่พัก แล้วเจอกันที่งานปาร์ตี้</p>
 
-        <div className="qr-box">
-          {qrDataUrl && <img src={qrDataUrl} alt="QR บัตรเข้าพัก" className="qr-img" />}
+          <div className="qr-box">
+            {qrDataUrl && <img src={qrDataUrl} alt="QR บัตรเข้าพัก" className="qr-img" />}
+          </div>
+
+          <div className="receipt">
+            <span>บัตรเลขที่</span>
+            <span>{savedNo}</span>
+          </div>
         </div>
 
-        <div className="receipt">
-          <span>บัตรเลขที่</span>
-          <span>{savedNo}</span>
-        </div>
-
-        <p className="qr-note">กดปุ่มด้านล่างเพื่อบันทึกรูป QR ลงเครื่อง หรือกดค้างที่รูปเพื่อบันทึกลงแกลเลอรี (หรือแคปหน้าจอไว้ก็ได้)</p>
+        <p className="qr-note">กดปุ่มด้านล่างเพื่อบันทึกบัตรทั้งใบลงเครื่อง (หรือแคปหน้าจอไว้ก็ได้)</p>
 
         <button type="button" className="submit" onClick={saveQR}>
-          บันทึกรูป QR ลงเครื่อง
+          บันทึกบัตรลงเครื่อง
         </button>
         <div style={{ marginTop: 10 }}>
           <button type="button" className="link-btn" onClick={reset}>

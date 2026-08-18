@@ -659,3 +659,7 @@ input[type="time"]::-webkit-calendar-picker-indicator {
     transition-duration: 0.001ms !important;
   }
 }
+
+.capture {
+  padding: 6px 2px 2px;
+}
