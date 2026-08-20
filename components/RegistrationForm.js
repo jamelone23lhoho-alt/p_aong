@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import Spinner from "@/components/Spinner";
 import SavingOverlay from "@/components/SavingOverlay";
@@ -8,15 +8,8 @@ import Segmented from "@/components/Segmented";
 import FlatpickrField from "@/components/FlatpickrField";
 import FloatingInput from "@/components/FloatingInput";
 
-const TIER_COLOR = {
-  STANDARD: { c: "#8494a6", s: "rgba(132,148,166,0.18)" },
-  GOLD: { c: "#e2b23c", s: "rgba(226,178,60,0.18)" },
-  PLATINUM: { c: "#bcc9db", s: "rgba(188,201,219,0.18)" }
-};
-
 const EMPTY = {
   cardNo: "",
-  tier: "",
   firstName: "",
   lastName: "",
   role: "",
@@ -41,7 +34,7 @@ function genToken() {
 export default function RegistrationForm() {
   const [status, setStatus] = useState("loading");
   const [loadError, setLoadError] = useState("");
-  const [options, setOptions] = useState({ tiers: [], roles: [] });
+  const [options, setOptions] = useState({ roles: [] });
   const [form, setForm] = useState(EMPTY);
   const [errors, setErrors] = useState({});
   const [submitError, setSubmitError] = useState("");
@@ -58,7 +51,6 @@ export default function RegistrationForm() {
       const data = await res.json();
       if (!res.ok || !data.ok) throw new Error(data.error || "โหลดตัวเลือกไม่สำเร็จ");
       setOptions({
-        tiers: data.tiers?.length ? data.tiers : ["STANDARD", "GOLD", "PLATINUM"],
         roles: data.roles?.length ? data.roles : ["ผู้เข้าพักหลัก", "ผู้เข้าร่วมพัก"]
       });
       setStatus("ready");
@@ -84,10 +76,7 @@ export default function RegistrationForm() {
     }
   }, [status, savedToken, savedNo]);
 
-  const tierStyle = useMemo(() => {
-    const t = TIER_COLOR[form.tier] || TIER_COLOR.STANDARD;
-    return { "--tier": t.c, "--tier-soft": t.s };
-  }, [form.tier]);
+  const themeStyle = { "--tier": "#33a9e8", "--tier-soft": "rgba(51,169,232,0.16)" };
 
   const set = (key) => (val) => {
     setForm((f) => ({ ...f, [key]: val }));
@@ -97,7 +86,6 @@ export default function RegistrationForm() {
   const validate = () => {
     const e = {};
     if (!/^\d{3}$/.test(form.cardNo)) e.cardNo = true;
-    if (!form.tier) e.tier = true;
     if (!form.firstName.trim()) e.firstName = true;
     if (!form.lastName.trim()) e.lastName = true;
     if (!form.role) e.role = true;
@@ -194,7 +182,7 @@ export default function RegistrationForm() {
 
   if (status === "done") {
     return (
-      <div className="success" style={tierStyle}>
+      <div className="success" style={themeStyle}>
         <div ref={captureRef} className="capture">
           <div className="success__mark">
             <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
@@ -230,7 +218,7 @@ export default function RegistrationForm() {
   }
 
   return (
-    <div style={tierStyle}>
+    <div style={themeStyle}>
       {status === "saving" && <SavingOverlay />}
 
       <div className="pass" aria-hidden="false">
@@ -239,7 +227,6 @@ export default function RegistrationForm() {
             <div className="pass__label">หมายเลขบัตรเข้าพัก</div>
             <div className="pass__no">{form.cardNo || "— — —"}</div>
           </div>
-          <div className="pass__tier">{form.tier || "เลือกบัตร"}</div>
         </div>
         <div className="pass__name">
           {form.firstName || form.lastName ? (
@@ -265,11 +252,6 @@ export default function RegistrationForm() {
               value={form.cardNo}
               onChange={(e) => set("cardNo")(e.target.value.replace(/\D/g, "").slice(0, 3))}
             />
-          </div>
-
-          <div className="group">
-            <span className="field-label">ประเภทบัตร</span>
-            <Segmented options={options.tiers} value={form.tier} onChange={set("tier")} tier ariaLabel="ประเภทบัตร" />
           </div>
 
           <div className="grid-2">

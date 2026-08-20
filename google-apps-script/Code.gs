@@ -47,7 +47,7 @@ const REC_HEADERS = [
   "เวลาสแกนเข้างาน"
 ];
 
-const DEFAULT_TIERS = ["STANDARD", "GOLD", "PLATINUM"];
+const DEFAULT_TIERS = [];
 const DEFAULT_ROLES = ["ผู้เข้าพักหลัก", "ผู้เข้าร่วมพัก"];
 
 function onOpen() {
@@ -125,7 +125,7 @@ function addRecord(record) {
   const sheet = getDbSheet_();
   const r = record || {};
 
-  const required = ["cardNo", "tier", "firstName", "lastName", "role", "phone", "email", "company", "hotel", "checkinDate"];
+  const required = ["cardNo", "firstName", "lastName", "role", "phone", "email", "company", "hotel", "checkinDate"];
   for (let i = 0; i < required.length; i++) {
     if (!String(r[required[i]] || "").trim()) {
       return jsonOut_({ ok: false, error: "ข้อมูลไม่ครบถ้วน" });
@@ -149,7 +149,7 @@ function addRecord(record) {
     [
       stamp,
       r.cardNo,
-      r.tier,
+      "",
       r.firstName,
       r.lastName,
       r.role,
@@ -212,7 +212,7 @@ function confirmationHtml_(r, token) {
     '<tr><td align="center" style="padding:2px 24px 4px;"><div style="font-size:18px;color:#1f6fb2;"><b>Welcome</b>, you are registered of :</div></td></tr>' +
     '<tr><td align="center" style="padding:14px 24px 2px;"><div style="font-size:18px;font-weight:bold;color:#1a2330;">TEMCA NIGHT PARTY 2026</div></td></tr>' +
     '<tr><td align="center" style="padding:6px 24px 2px;"><div style="font-size:15px;color:#3a4653;line-height:1.7;">22 August 2026 18:00-22:00<br/>Garden in the Sky ( Hall 1 )</div></td></tr>' +
-    '<tr><td align="center" style="padding:12px 24px 2px;"><div style="font-size:13px;color:#8b93a0;">บัตรเลขที่ ' + r.cardNo + " · " + r.tier + '</div></td></tr>' +
+    '<tr><td align="center" style="padding:12px 24px 2px;"><div style="font-size:13px;color:#8b93a0;">บัตรเลขที่ ' + r.cardNo + '</div></td></tr>' +
     '<tr><td align="center" style="padding:16px 24px 8px;"><img src="' + qr + '" width="180" height="180" style="display:block;border:0;" alt="QR"/></td></tr>' +
     '<tr><td align="center" style="padding:2px 24px 4px;"><div style="font-size:13px;color:#3a4653;">Your reference <b>ID : ' + code + '</b></div></td></tr>' +
     '<tr><td align="center" style="padding:10px 24px 28px;"><div style="font-size:16px;font-weight:bold;color:#1a2330;">' + r.firstName + " " + r.lastName + '</div></td></tr>' +
