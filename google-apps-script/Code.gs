@@ -132,23 +132,12 @@ function addRecord(record) {
     }
   }
 
-  const lastRow = Math.max(sheet.getLastRow(), 1);
-  const stampCol = sheet.getRange(1, REC_START_COL, lastRow, 1).getValues();
-  let target = 2;
-  for (let i = 1; i < stampCol.length; i++) {
-    if (String(stampCol[i][0]).trim() === "") {
-      target = i + 1;
-      break;
-    }
-    target = i + 2;
-  }
-
   const stamp = Utilities.formatDate(new Date(), TZ, "yyyy-MM-dd HH:mm:ss");
   const token = String(r.token || "");
   const row = pad_(
     [
       stamp,
-      r.cardNo,
+      "'" + String(r.cardNo),
       "",
       r.firstName,
       r.lastName,
@@ -165,7 +154,31 @@ function addRecord(record) {
     REC_COLS
   );
 
-  sheet.getRange(target, REC_START_COL, 1, REC_COLS).setValues([row]);
+  const lock = LockService.getScriptLock();
+  try {
+    lock.waitLock(20000);
+  } catch (e) {
+    return jsonOut_({ ok: false, error: "ระบบกำลังบันทึกรายการอื่น กรุณาลองอีกครั้ง" });
+  }
+
+  let target;
+  try {
+    const lastRow = Math.max(sheet.getLastRow(), 1);
+    const stampCol = sheet.getRange(1, REC_START_COL, lastRow, 1).getValues();
+    target = 2;
+    for (let i = 1; i < stampCol.length; i++) {
+      if (String(stampCol[i][0]).trim() === "") {
+        target = i + 1;
+        break;
+      }
+      target = i + 2;
+    }
+    sheet.getRange(target, REC_START_COL, 1, REC_COLS).setValues([row]);
+    SpreadsheetApp.flush();
+  } finally {
+    lock.releaseLock();
+  }
+
   sendConfirmation_(r, token);
 
   return jsonOut_({ ok: true, row: target });
